@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Chat Localizer</title>
+<meta name="description" content="Content-design prototype: localizing (not just translating) a multilingual livestream chat.">
+<style>
+:root{
+  --bg:#0f0f12; --panel:#17171c; --panel2:#1f1f26; --line:#2c2c35; --text:#ececf1; --muted:#9a9aa6;
+  --accent:#fe2c55; --accent2:#25f4ee; --good:#3ddc97; --bad:#ff6b6b; --warn:#ffb020;
+  --radius:14px; --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", Roboto, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:var(--accent2)}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:#121216;position:sticky;top:0;z-index:5}
+.brand h1{font-size:17px;margin:0;letter-spacing:.2px}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{background:none;border:0;padding:6px 12px;border-radius:999px;color:var(--muted);font-size:13px}
+.seg button.on{background:var(--text);color:#111;font-weight:600}
+.ctl-label{font-size:12px;color:var(--muted);margin-right:4px}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px}
+.btn:hover{border-color:#44444f}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.mode{font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.mode.live{color:#111;background:var(--good);border-color:var(--good);font-weight:600}
+
+main{display:grid;grid-template-columns:minmax(300px,380px) minmax(320px,1fr) minmax(320px,1fr);gap:18px;padding:18px 20px;max-width:1500px;margin:0 auto}
+@media (max-width:1100px){header{position:static}main{grid-template-columns:1fr;padding:14px 16px}.phone{margin:0 auto}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;min-width:0}
+.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0 0 12px;font-weight:600}
+
+/* ---------- phone ---------- */
+.phone{width:100%;max-width:380px;aspect-ratio:9/17.5;border-radius:28px;border:6px solid #000;outline:1px solid var(--line);position:relative;overflow:hidden;
+  background: radial-gradient(120% 70% at 50% 15%, #ffb35c55 0%, transparent 60%), radial-gradient(90% 60% at 20% 80%, #fe2c5533 0%, transparent 60%), linear-gradient(180deg,#2a1a12 0%,#120c0a 55%,#08080a 100%)}
+.scene{position:absolute;inset:0;display:flex;align-items:flex-start;padding-top:22%;justify-content:center;font-size:84px;filter:saturate(1.1);opacity:.9}
+.scene span{display:inline-block;animation:bob 3s ease-in-out infinite}
+.scene span:nth-child(2){animation-delay:.5s;font-size:60px}
+.scene span:nth-child(3){animation-delay:1s;font-size:48px}
+@keyframes bob{50%{transform:translateY(-8px) rotate(-3deg)}}
+.steam{position:absolute;top:14%;left:50%;width:6px;height:60px;background:linear-gradient(#fff0,#fff3,#fff0);border-radius:6px;animation:steam 2.5s linear infinite}
+@keyframes steam{from{transform:translate(-50%,20px);opacity:0}50%{opacity:1}to{transform:translate(-50%,-40px);opacity:0}}
+.topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;align-items:center;gap:8px}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--warn));display:flex;align-items:center;justify-content:center;font-size:16px}
+.hostbox{background:#0008;border-radius:999px;padding:3px 4px 3px 3px;display:flex;align-items:center;gap:8px;max-width:72%}
+.hostbox .nm{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hostbox .vw{font-size:10px;color:#ddd}
+.follow{background:var(--accent);border:0;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap}
+.live-badge{margin-left:auto;background:var(--accent);color:#fff;font-weight:800;font-size:11px;padding:3px 7px;border-radius:5px;letter-spacing:.5px}
+.chat{position:absolute;left:10px;right:70px;bottom:104px;display:flex;flex-direction:column;gap:6px;max-height:52%;overflow:hidden;
+  -webkit-mask-image:linear-gradient(transparent 0,#000 25%);mask-image:linear-gradient(transparent 0,#000 25%);justify-content:flex-end}
+.msg{background:#0007;border-radius:12px;padding:6px 9px;font-size:13px;line-height:1.35;cursor:pointer;border:1px solid transparent;animation:pop .25s ease-out;align-self:flex-start;max-width:100%}
+.msg:hover{border-color:#fff3}
+.msg.sel{border-color:var(--accent2)}
+.msg .u{font-weight:700;color:#ffd0da;margin-right:5px}
+.msg .flag{font-size:10px;margin-left:5px;opacity:.75;white-space:nowrap}
+.msg.host{background:#fe2c55cc}
+.msg.host .u{color:#fff}
+.msg.toxic{opacity:.55}
+.msg .lit{color:#ffb3b3}
+@keyframes pop{from{transform:translateY(8px);opacity:0}}
+.side-icons{position:absolute;right:10px;bottom:120px;display:flex;flex-direction:column;gap:14px;align-items:center;font-size:22px}
+.side-icons div{display:flex;flex-direction:column;align-items:center;gap:2px}
+.side-icons small{font-size:10px;color:#ddd;max-width:60px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.giftbar{position:absolute;left:10px;right:10px;bottom:52px;display:flex;gap:6px}
+.gift{flex:1;background:#0008;border:1px solid #ffffff22;border-radius:10px;padding:4px 4px;font-size:11px;display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inputbar{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:6px}
+.inputbar input{flex:1;min-width:0;background:#000a;border:1px solid #ffffff22;border-radius:999px;color:#fff;padding:9px 14px;font:inherit;font-size:13px;outline:none}
+.inputbar input:focus{border-color:var(--accent2)}
+.inputbar button{background:var(--accent);border:0;border-radius:999px;padding:0 14px;color:#fff;font-weight:700}
+.under-phone{color:var(--muted);font-size:12px;margin-top:10px;line-height:1.5}
+
+/* ---------- inspector ---------- */
+.empty{color:var(--muted);font-size:13px;line-height:1.6}
+.orig{display:flex;gap:10px;align-items:flex-start;margin-bottom:14px}
+.orig .txt{font-size:18px;line-height:1.4;font-weight:600}
+.lang{font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:6px;padding:2px 6px;color:var(--muted);white-space:nowrap}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;color:#111}
+.row{display:grid;grid-template-columns:52px 1fr;gap:6px 10px;padding:10px 0;border-top:1px dashed var(--line);align-items:start}
+.row .k{font-size:11px;color:var(--muted);padding-top:3px}
+.lit-line{color:var(--bad);font-size:14px;line-height:1.45}
+.lit-line::before{content:"✕ machine literal  ";font-size:10px;font-weight:700;letter-spacing:.4px;opacity:.8}
+.loc-line{color:var(--good);font-size:15px;line-height:1.45;font-weight:600;margin-top:4px}
+.loc-line::before{content:"✓ localized  ";font-size:10px;font-weight:700;letter-spacing:.4px;opacity:.8}
+.same{color:var(--muted);font-size:12px;margin-top:3px}
+.why{margin-top:14px;background:var(--panel2);border-left:3px solid var(--accent2);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.55}
+.why b{color:var(--accent2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px;line-height:1.35}
+.chip b{color:var(--warn)}
+details{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+summary{cursor:pointer;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+.rule{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;line-height:1.5}
+.rule b{color:var(--text)} .rule span{color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat{background:var(--panel2);border-radius:10px;padding:10px;text-align:center}
+.stat b{display:block;font-size:20px}
+.stat small{color:var(--muted);font-size:11px}
+
+/* ---------- host console ---------- */
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tabs button{background:none;border:1px solid var(--line);border-radius:999px;padding:5px 12px;color:var(--muted);font-size:12px}
+.tabs button.on{background:var(--panel2);color:var(--text);border-color:#44444f}
+.q{background:var(--panel2);border-radius:12px;padding:12px;margin-bottom:10px;border:1px solid transparent}
+.q.done{opacity:.45}
+.q .meta{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);margin-bottom:6px;flex-wrap:wrap}
+.q .zh{font-size:14px;line-height:1.45}
+.q .src{font-size:12px;color:var(--muted);margin-top:3px}
+.q .rep{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px;font-size:13px;line-height:1.45}
+.q .rep .r1{color:var(--good)}
+.q .rep .r2{color:var(--muted);font-size:12px;margin-top:2px}
+.q .actions{display:flex;gap:8px;margin-top:10px}
+.q .actions button{font-size:12px;padding:5px 12px}
+.mod{font-size:12px;color:var(--bad);margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.bar{height:6px;border-radius:4px;background:var(--line);margin-top:5px;position:relative;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.ok{color:var(--good)} .over{color:var(--bad)}
+.gl-term{font-weight:700;color:var(--warn)}
+.small{font-size:12px;color:var(--muted)}
+
+/* ---------- settings ---------- */
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:20px;max-width:460px;width:calc(100% - 32px)}
+dialog::backdrop{background:#000a}
+dialog label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
+dialog input,dialog select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 10px;font:inherit}
+dialog .note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:12px}
+dialog .row2{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 20px 26px;line-height:1.6}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Live Chat Localizer <span style="color:var(--accent)">●</span></h1>
+    <p>Localizing, not just translating, a global livestream chat · prototype by Yi Siqi</p>
+  </div>
+  <div class="controls">
+    <span class="ctl-label">Viewer language</span>
+    <div class="seg" id="langSeg"></div>
+    <div class="seg" id="viewSeg">
+      <button data-v="loc" class="on">Localized</button>
+      <button data-v="lit">Machine literal</button>
+    </div>
+    <button class="btn" id="playBtn">⏸ Pause</button>
+    <button class="btn" id="restartBtn">↺ Restart</button>
+    <span class="mode" id="modeBadge">Offline demo</span>
+    <button class="btn" id="settingsBtn" title="Live LLM mode">⚙︎ Live mode</button>
+  </div>
+</header>
+
+<main>
+  <!-- ========== the live room ========== -->
+  <section>
+    <div class="phone" id="phone">
+      <div class="scene"><span>🍢</span><span>🌶️</span><span>🔥</span></div>
+      <div class="steam"></div>
+      <div class="topbar">
+        <div class="hostbox">
+          <div class="avatar">思</div>
+          <div style="min-width:0"><div class="nm" id="hostName"></div><div class="vw" id="viewers"></div></div>
+          <button class="follow" id="followBtn"></button>
+        </div>
+        <span class="live-badge">LIVE</span>
+      </div>
+      <div class="chat" id="chat"></div>
+      <div class="side-icons">
+        <div>❤️<small>12.4k</small></div>
+        <div>💬<small>1.2k</small></div>
+        <div>↗️<small id="shareLbl"></small></div>
+      </div>
+      <div class="giftbar" id="giftbar"></div>
+      <form class="inputbar" id="inputForm" autocomplete="off">
+        <input id="inputBox" placeholder="Type a comment in any language…" maxlength="140">
+        <button type="submit">↑</button>
+      </form>
+    </div>
+    <p class="under-phone">Click any comment to inspect it. Switch the viewer language to see the same chat through a Chinese, English or Spanish viewer's eyes. Toggle <b>Machine literal</b> to see what plain MT would show.</p>
+  </section>
+
+  <!-- ========== inspector ========== -->
+  <section class="panel">
+    <h2>Localization inspector</h2>
+    <div class="stats" id="stats"></div>
+    <div id="inspector"><p class="empty">Waiting for the first comment… Click a message in the chat to see the literal translation, the localized version, the tone tag and the reasoning behind it.</p></div>
+    <details>
+      <summary>Adaptation rules (<span id="ruleCount"></span>)</summary>
+      <div id="rules"></div>
+    </details>
+  </section>
+
+  <!-- ========== host console ========== -->
+  <section class="panel">
+    <h2>Host console · 主播工作台</h2>
+    <div class="tabs" id="tabs">
+      <button data-t="queue" class="on">Reply queue</button>
+      <button data-t="ui">UI strings check</button>
+      <button data-t="glossary">Slang glossary</button>
+    </div>
+    <div id="tab-queue"></div>
+    <div id="tab-ui" hidden></div>
+    <div id="tab-glossary" hidden></div>
+  </section>
+</main>
+
+<footer>
+  Simulated chat, not connected to any real platform. Concept, localization rules, glossary and copy: Yi Siqi. Prototype built with Claude Code.
+</footer>
+
+<dialog id="settings">
+  <h3 style="margin:0 0 4px">Live LLM mode</h3>
+  <div class="small">Comments you type are batched every 1.5 s and localized by an LLM using the rules and glossary in <code>siqi/localization.js</code>.</div>
+  <label for="provider">Provider</label>
+  <select id="provider">
+    <option value="openai">OpenAI-compatible (DeepSeek, Qwen, OpenAI…)</option>
+    <option value="anthropic">Anthropic (Claude)</option>
+  </select>
+  <label for="baseUrl">Base URL</label>
+  <input id="baseUrl" placeholder="https://api.deepseek.com">
+  <label for="model">Model</label>
+  <input id="model" placeholder="deepseek-chat">
+  <label for="apiKey">API key</label>
+  <input id="apiKey" type="password" placeholder="sk-…">
+  <p class="note">The key stays in this browser only and is sent directly to the provider. Leave it empty to use the offline demo, which plays a pre-localized script and always works.</p>
+  <div class="row2">
+    <button class="btn" id="clearKey">Use offline demo</button>
+    <button class="btn primary" id="saveKey">Save</button>
+  </div>
+</dialog>
+
+<script>
+/* ============================================================
+   LOCALIZATION CONFIG  ·  本地化配置  ·  owned by Siqi
+   ------------------------------------------------------------
+   This file is the "brain" of the demo. Everything a content
+   designer decides lives here: slang glossary, adaptation rules,
+   tone tags, the LLM system prompt and the UI microcopy.
+   Edit freely. Save, then reload index.html to see the change.
+   DRAFT: every entry below is a proposal for Siqi to review.
+   ============================================================ */
+
+window.LOC = {};
+
+/* ---------- 1. Languages ---------- */
+LOC.languages = {
+  zh: { name: "中文", label: "Chinese (Simplified)" },
+  en: { name: "English", label: "English (global)" },
+  es: { name: "Español", label: "Spanish (neutral, LatAm-friendly)" }
+};
+
+/* ---------- 2. Tone / intent tags ----------
+   Each comment gets exactly one tag. The host console uses the
+   tag to decide what to surface (questions and requests first). */
+LOC.tones = {
+  hype:      { label: "Hype",      zh: "起哄", color: "#ff3b5c", hostPriority: 0 },
+  affection: { label: "Affection", zh: "喜爱", color: "#ff7ab8", hostPriority: 0 },
+  joke:      { label: "Joke",      zh: "玩梗", color: "#ffb020", hostPriority: 0 },
+  greeting:  { label: "Greeting",  zh: "打招呼", color: "#25c2a0", hostPriority: 1 },
+  question:  { label: "Question",  zh: "提问", color: "#3d8bff", hostPriority: 2 },
+  request:   { label: "Request",   zh: "请求", color: "#8a63ff", hostPriority: 2 },
+  negative:  { label: "Negative",  zh: "差评", color: "#9aa0a6", hostPriority: 0 },
+  toxic:     { label: "Toxic",     zh: "攻击", color: "#5f6368", hostPriority: 3 }
+};
+
+/* ---------- 3. Adaptation rules ----------
+   Short, testable rules. They are shown in the demo and injected
+   into the LLM prompt, so write them as instructions. */
+LOC.rules = [
+  { id: "R1", title: "Translate the function, not the words",
+    text: "Chat slang is a speech act (cheering, teasing, asking). Render what the viewer is DOING, using the target chat's own convention for that act." },
+  { id: "R2", title: "Never ship a literal that misfires",
+    text: "If a literal translation is meaningless or carries a wrong association in the target culture (e.g. 666 reads as 'devil' to Western viewers), adapt it." },
+  { id: "R3", title: "Keep the register, not the politeness",
+    text: "Casual stays casual, rude stays rude. Localization must not sanitize; moderation is a separate tag, not a softer translation." },
+  { id: "R4", title: "Community address is not family",
+    text: "家人们 / 宝宝们 / chat / gente are ways a crowd addresses itself. Map to the target crowd's word (y'all, chat, gente), never 'family members'." },
+  { id: "R5", title: "Don't over-localize plain text",
+    text: "If a sentence is already neutral and clear, a faithful translation is the best localization. Adapt only where something would be lost." },
+  { id: "R6", title: "Proper nouns and food names",
+    text: "Keep established names (Changsha, stinky tofu / tofu apestoso, 臭豆腐). Add a 2-4 word gloss only if a viewer would not understand." },
+  { id: "R7", title: "Emoji and laughter are localized too",
+    text: "哈哈哈 / 笑死 ↔ lmao / lol ↔ jajaja / XD. Match length and intensity, keep emoji unless their meaning differs by region." },
+  { id: "R8", title: "Surface commerce and questions to the host",
+    text: "求链接, 'drop the link', '¿dónde lo compro?' are purchase intent. Tag as Request so the host console can answer them in the viewer's language." }
+];
+
+/* ---------- 4. Slang glossary ----------
+   term: as it appears in chat · lang: source language
+   meaning: what it really means (for the reviewer)
+   zh/en/es: the preferred localized equivalent per language
+   why: the decision, in one line — this is portfolio material  */
+LOC.glossary = [
+  { term: "666", lang: "zh", meaning: "溜 (smooth/skilled): applause for a good move",
+    en: "LET'S GOOO / insane", es: "¡Vamooos! / qué nivel",
+    why: "Digits alone mean nothing abroad and 666 = 'devil' in the West (R2)." },
+  { term: "awsl", lang: "zh", meaning: "啊我死了 'ah I'm dead (of cuteness)'",
+    en: "I'm screaming 😭 / I can't", es: "me muero 😭",
+    why: "Same hyperbole exists in both targets, so keep the 'dying' image (R1)." },
+  { term: "yyds", lang: "zh", meaning: "永远的神 'eternal god', the best ever",
+    en: "the GOAT 🐐", es: "lo más / el mejor de la historia",
+    why: "GOAT is the exact English chat equivalent, emoji included." },
+  { term: "前排", lang: "zh", meaning: "front row: claiming to be early",
+    en: "first!", es: "¡primero!", zh: "前排",
+    why: "Every chat has a 'first' ritual; use the target's ritual word." },
+  { term: "家人们", lang: "zh", meaning: "streamer community addressing itself",
+    en: "y'all / chat", es: "gente",
+    why: "R4: never 'family members'." },
+  { term: "破防", lang: "zh", meaning: "'defense broken' (gaming) → emotionally hit",
+    en: "this hit me / I'm not okay", es: "esto me ha tocado",
+    why: "The gaming metaphor is lost abroad; keep the emotion." },
+  { term: "求链接", lang: "zh", meaning: "'begging for the link': wants to buy",
+    en: "drop the link pls", es: "pasa el enlace porfa",
+    why: "Purchase intent → tag Request (R8)." },
+  { term: "绝绝子", lang: "zh", meaning: "absolutely amazing (hyperbolic)",
+    en: "this is everything", es: "una pasada",
+    why: "Trendy hyperbole ↔ trendy hyperbole." },
+  { term: "no cap", lang: "en", meaning: "no lie, for real",
+    zh: "说真的 / 不骗你", es: "en serio",
+    why: "MT renders it as 没有帽子 ('no hat'), a classic failure." },
+  { term: "bussin", lang: "en", meaning: "(food) really good",
+    zh: "太香了", es: "buenísimo",
+    why: "Food slang → food word: 香 keeps the 'smell/taste' sense." },
+  { term: "it's giving", lang: "en", meaning: "it has the vibe of …",
+    zh: "……既视感 / 满满的……感", es: "esto es puro …",
+    why: "Grammar-breaking slang; MT produces 它正在给 ('it is giving')." },
+  { term: "L", lang: "en", meaning: "loss: bad, failure",
+    zh: "差评 / 拉了", es: "malísimo",
+    why: "Keep the negativity (R3)." },
+  { term: "W", lang: "en", meaning: "win: great",
+    zh: "赢麻了 / 牛", es: "top",
+    why: "Single letter is opaque outside English chat." },
+  { term: "ratio", lang: "en", meaning: "'your post got fewer likes than replies': dunking",
+    zh: "（嘲讽）", es: "(burla)",
+    why: "Harassment marker → tag Toxic for moderation, don't explain the meme." },
+  { term: "fell off", lang: "en", meaning: "no longer relevant",
+    zh: "过气了", es: "ya no eres nadie",
+    why: "Exact Chinese equivalent exists." },
+  { term: "crack", lang: "es", meaning: "an ace, a legend (Spain & LatAm)",
+    en: "legend", zh: "太牛了 / 大神",
+    why: "MT may output 裂缝 ('a crack in a wall')." },
+  { term: "jajaja", lang: "es", meaning: "laughter",
+    en: "lmao", zh: "哈哈哈",
+    why: "R7: laughter has a spelling per language." },
+  { term: "XD", lang: "es", meaning: "laughing face",
+    en: "lol", zh: "笑死",
+    why: "Widely used in Spanish chat, dated in English chat." },
+  { term: "señora", lang: "es", meaning: "lady (polite)",
+    en: "auntie (affectionate) / the lady", zh: "阿姨",
+    why: "For a food-stall owner, 阿姨 is the natural Chinese address." }
+];
+
+/* ---------- 5. LLM system prompt (live mode) ----------
+   {{RULES}}, {{GLOSSARY}} and {{TARGETS}} are filled in by the app. */
+LOC.systemPrompt = `You are the localization layer of a global livestream chat on a short-video platform.
+The host is streaming live from a night market in Changsha, China, cooking Changsha stinky tofu (臭豆腐).
+Viewers comment in Chinese, English and Spanish.
+
+For EACH comment you receive, return:
+- "tone": one of hype, affection, joke, greeting, question, request, negative, toxic
+- for each target language in {{TARGETS}} that differs from the comment's language:
+    "literal": what a word-for-word machine translation would output (keep its mistakes, it is shown as a contrast)
+    "localized": what a native viewer of that language would naturally write in a live chat
+- "note": ONE short sentence in English explaining the key adaptation decision, or "" if none was needed
+- "reply": only if tone is question, request or greeting: a short, warm suggested reply for the host,
+    with "text" in the commenter's language and "zh" in Chinese for the host to understand it
+
+Adaptation rules (follow strictly):
+{{RULES}}
+
+Preferred slang equivalents:
+{{GLOSSARY}}
+
+Output ONLY a JSON array, one object per comment, same order, with keys:
+id, lang, tone, out (object keyed by language code with {literal, localized}), note, reply (or null).
+Keep "localized" chat-length: never more than ~1.3x the original.`;
+
+/* ---------- 6. UI microcopy for the live room ----------
+   maxPx = width of the button/slot in the design (px at 13px font).
+   The demo measures each string and flags overflow.
+   alt = Siqi's shorter fallback when the main string overflows. */
+LOC.uiStrings = [
+  { key: "follow",        maxPx: 64,  zh: "关注",       en: "Follow",          es: "Seguir" },
+  { key: "share",         maxPx: 64,  zh: "分享",       en: "Share",           es: "Compartir" },
+  { key: "send_gift",     maxPx: 56,  zh: "送出",       en: "Send",            es: "Enviar" },
+  { key: "join_fan_club", maxPx: 96,  zh: "加入粉丝团", en: "Join fan club",   es: "Unirse al club de fans", alt: { es: "Club de fans" } },
+  { key: "gift_finger_heart", maxPx: 80, zh: "比心",    en: "Finger Heart",    es: "Corazón con los dedos", alt: { es: "Corazoncito" } },
+  { key: "gift_rose",     maxPx: 80,  zh: "玫瑰",       en: "Rose",            es: "Rosa" },
+  { key: "tap_translate", maxPx: 110, zh: "点击查看翻译", en: "Tap to translate", es: "Toca para traducir", alt: { es: "Traducir" } },
+  { key: "live_ended",    maxPx: 130, zh: "直播已结束", en: "LIVE has ended",  es: "El directo ha terminado", alt: { es: "Directo finalizado" } },
+  { key: "viewers",       maxPx: 110,  zh: "{n} 人在看", en: "{n} watching",   es: "{n} viendo" }
+];
+
+</script>
+<script>
+/* ============================================================
+   STREAM SCRIPT  ·  模拟直播弹幕  ·  owned by Siqi
+   ------------------------------------------------------------
+   The simulated chat, with the "before" (literal MT) and "after"
+   (localized) version of every comment. This is what the demo
+   plays when there is no API key, so it always works offline.
+   These pairs are also the before/after examples for the
+   portfolio case study. DRAFT: Siqi reviews every line.
+
+   lang = language the viewer wrote in
+   out  = one entry per OTHER language: literal vs localized
+   note = the decision, in one sentence (shown in the inspector)
+   reply = suggested host reply (questions, requests, greetings):
+          text in the commenter's language; optional zh/en/es versions
+          so every viewer sees the host's answer in their own language
+   ============================================================ */
+
+window.STREAM = {
+  title: "长沙坡子街 · 现炸臭豆腐 | Changsha night market: stinky tofu LIVE",
+  host: "小思在长沙",
+  comments: [
+    { id: 1, user: "tofu_lover88", lang: "zh", text: "前排！", tone: "hype",
+      out: {
+        en: { literal: "Front row!", localized: "First! 🙌" },
+        es: { literal: "¡Primera fila!", localized: "¡Primero! 🙌" } },
+      note: "前排 is the 'I'm early' ritual; English and Spanish chat use 'first'." },
+
+    { id: 2, user: "jakeyy", lang: "en", text: "first 🔥", tone: "hype",
+      out: {
+        zh: { literal: "第一 🔥", localized: "前排🔥" },
+        es: { literal: "primero 🔥", localized: "¡Primero! 🔥" } },
+      note: "Same ritual in reverse: 第一 sounds like a ranking, 前排 is what Chinese chat says." },
+
+    { id: 3, user: "湘妹子", lang: "zh", text: "666666", tone: "hype",
+      out: {
+        en: { literal: "666666", localized: "LET'S GOOO 🔥" },
+        es: { literal: "666666", localized: "¡Vamooos! 🔥" } },
+      note: "Copying the digits is meaningless abroad, and 666 reads as 'the devil' to Western viewers." },
+
+    { id: 4, user: "lucia.mx", lang: "es", text: "jajaja qué asco pero lo quiero probar", tone: "joke",
+      out: {
+        en: { literal: "hahaha how disgusting but I want to try it", localized: "lmao looks gross but I NEED to try it" },
+        zh: { literal: "哈哈哈多么恶心但是我想尝试它", localized: "哈哈哈看着劝退但好想尝一口" } },
+      note: "恶心 sounds like an insult to the host's food; 劝退 keeps the playful 'scary but tempting' tone." },
+
+    { id: 5, user: "momo酱", lang: "zh", text: "awsl 阿姨手速好快", tone: "affection",
+      out: {
+        en: { literal: "awsl auntie's hand speed is so fast", localized: "I'm screaming 😭 auntie's knife skills are insane" },
+        es: { literal: "awsl la velocidad de mano de la tía es muy rápida", localized: "Me muero 😭 qué rapidez tiene la señora" } },
+      note: "awsl = 啊我死了; the 'dying' hyperbole exists in both targets, so the image is kept." },
+
+    { id: 6, user: "chris_eats", lang: "en", text: "what does it actually smell like? no cap", tone: "question",
+      out: {
+        zh: { literal: "它实际上闻起来像什么？没有帽子", localized: "说真的，到底是什么味儿？" },
+        es: { literal: "¿a qué huele realmente? sin gorra", localized: "En serio, ¿a qué huele de verdad?" } },
+      note: "'no cap' becomes 'no hat' in MT; it means 'for real', so it moves to the front as 说真的.",
+      reply: { text: "Honestly? Like strong blue cheese 😄 But it tastes crispy outside, soft inside, I promise!",
+               zh: "说实话，闻着像很冲的蓝纹奶酪😄 但吃起来外脆里嫩，真不骗你！" } },
+
+    { id: 7, user: "长沙土著", lang: "zh", text: "家人们谁懂啊 看饿了", tone: "joke",
+      out: {
+        en: { literal: "Family members who understands, watched until hungry", localized: "Y'all… why am I suddenly starving 😭" },
+        es: { literal: "Miembros de la familia quién entiende, vi hasta tener hambre", localized: "Gente… ¿a alguien más le ha entrado hambre? 😭" } },
+      note: "家人们 is the crowd addressing itself, not relatives (rule R4)." },
+
+    { id: 8, user: "viajera_ana", lang: "es", text: "¿Dónde está ese mercado? Quiero ir cuando viaje a China", tone: "question",
+      out: {
+        en: { literal: "Where is that market? I want to go when I travel to China", localized: "Where is that market? I want to go when I travel to China" },
+        zh: { literal: "那个市场在哪里？我想去当我旅行到中国", localized: "这个夜市在哪儿呀？以后去中国想来打卡！" } },
+      note: "English needed no adaptation (rule R5); Chinese adds 打卡, the natural verb for visiting a famous spot.",
+      reply: { text: "¡Está en Changsha, en la calle Pozi (坡子街)! Te espero 😊",
+               zh: "在长沙坡子街！欢迎来打卡～" } },
+
+    { id: 9, user: "big_mike", lang: "en", text: "this stream is bussin fr", tone: "hype",
+      out: {
+        zh: { literal: "这个直播是bussin真的", localized: "这直播也太香了吧，真的" },
+        es: { literal: "este stream es bussin de verdad", localized: "Este directo está buenísimo, de verdad" } },
+      note: "'bussin' is food slang, so it maps to 香, which also evokes smell and taste." },
+
+    { id: 10, user: "辣妹子", lang: "zh", text: "求链接！哪里能买到这个辣椒酱", tone: "request",
+      out: {
+        en: { literal: "Beg link! Where can buy this chili sauce", localized: "Drop the link pls! Where can I get that chili sauce?" },
+        es: { literal: "¡Ruego enlace! Dónde puede comprar esta salsa de chile", localized: "¡Pasa el enlace porfa! ¿Dónde compro esa salsa picante?" } },
+      note: "求链接 is purchase intent, so it is tagged Request and sent to the host console (rule R8).",
+      reply: { text: "辣椒酱在购物车1号链接～",
+               en: "The chili sauce is in my shop, item #1! 🌶️", es: "La salsa está en mi tienda, ¡producto n.º 1! 🌶️" } },
+
+    { id: 11, user: "pablito_bcn", lang: "es", text: "Qué crack la señora del puesto 👏", tone: "affection",
+      out: {
+        en: { literal: "What a crack the lady of the stall 👏", localized: "The auntie at the stall is a legend 👏" },
+        zh: { literal: "摊位的女士真是个裂缝 👏", localized: "摊主阿姨太牛了👏" } },
+      note: "'crack' = an ace, but MT can output 裂缝 (a crack in a wall); señora becomes 阿姨, the natural address." },
+
+    { id: 12, user: "nate.k", lang: "en", text: "L stream, I can smell it from here 🤢🤢", tone: "negative",
+      out: {
+        zh: { literal: "L直播，我从这里能闻到它 🤢🤢", localized: "差评，隔着屏幕都闻到了🤢🤢" },
+        es: { literal: "Stream L, lo puedo oler desde aquí 🤢🤢", localized: "Directo malísimo, lo huelo desde aquí 🤢🤢" } },
+      note: "The negativity is kept on purpose; localization doesn't sanitize, moderation is a separate decision (R3)." },
+
+    { id: 13, user: "湖南小炒", lang: "zh", text: "yyds！长沙臭豆腐永远的神", tone: "hype",
+      out: {
+        en: { literal: "yyds! Changsha stinky tofu forever god", localized: "Changsha stinky tofu is the GOAT 🐐" },
+        es: { literal: "¡yyds! Tofu apestoso de Changsha dios para siempre", localized: "¡El tofu apestoso de Changsha es lo más! 🐐" } },
+      note: "yyds and GOAT are exact equivalents; the dish keeps its established name (rule R6)." },
+
+    { id: 14, user: "sofi_uy", lang: "es", text: "XD el gato de atrás", tone: "joke",
+      out: {
+        en: { literal: "XD the cat of behind", localized: "lol the cat in the back" },
+        zh: { literal: "XD 后面的猫", localized: "笑死，后面那只猫" } },
+      note: "XD is common in Spanish chat but dated in English; each language gets its own laugh (R7)." },
+
+    { id: 15, user: "greenplate", lang: "en", text: "is it vegan??", tone: "question",
+      out: {
+        zh: { literal: "它是素食主义者吗？？", localized: "这个是纯素的吗？？" },
+        es: { literal: "¿¿Es vegano??", localized: "¿¿Es vegano??" } },
+      note: "MT turns 'vegan' into a person (素食主义者); Spanish is fine as is.",
+      reply: { text: "Great question! The tofu is plant-based, but some stalls use meat broth in the sauce. Let me ask auntie 🙏",
+               zh: "好问题！豆腐本身是植物做的，但有的摊汤汁里放肉汤，我帮你问问阿姨🙏" } },
+
+    { id: 16, user: "在伦敦的湘妹", lang: "zh", text: "破防了，想家了", tone: "affection",
+      out: {
+        en: { literal: "Defense broken, miss home", localized: "Okay this hit me. I miss home 🥲" },
+        es: { literal: "Defensa rota, extraño casa", localized: "Vale, esto me ha tocado. Echo de menos mi casa 🥲" } },
+      note: "破防 comes from gaming; the metaphor is lost abroad, so the emotion is kept instead." },
+
+    { id: 17, user: "maya.travels", lang: "en", text: "it's giving street food heaven ✨", tone: "affection",
+      out: {
+        zh: { literal: "它正在给街头食物天堂 ✨", localized: "满满的街头美食天堂既视感✨" },
+        es: { literal: "está dando cielo de comida callejera ✨", localized: "Esto es puro paraíso de comida callejera ✨" } },
+      note: "'it's giving' breaks grammar on purpose; 既视感 is the Chinese chat structure for 'it has the vibe of'." },
+
+    { id: 18, user: "diego_cdmx", lang: "es", text: "Saludos desde México 🇲🇽", tone: "greeting",
+      out: {
+        en: { literal: "Greetings from Mexico 🇲🇽", localized: "Hi from Mexico 🇲🇽" },
+        zh: { literal: "来自墨西哥的问候 🇲🇽", localized: "墨西哥的朋友来打招呼啦🇲🇽" } },
+      note: "来自…的问候 sounds like a postcard; live chat Chinese uses …来打招呼啦.",
+      reply: { text: "¡Hola, México! Bienvenido al directo 🙌", zh: "欢迎墨西哥的朋友！" } },
+
+    { id: 19, user: "吃辣不怕", lang: "zh", text: "阿姨能不能加辣 挑战一下", tone: "request",
+      out: {
+        en: { literal: "Auntie can or cannot add spicy, challenge once", localized: "Spicy challenge! Ask auntie for extra chili 🌶️" },
+        es: { literal: "Tía puede o no puede añadir picante, desafiar una vez", localized: "¡Reto picante! Que la señora le eche más chile 🌶️" } },
+      note: "The 能不能 structure is a friendly push, not a yes/no question; 'challenge' becomes a call to action.",
+      reply: { text: "安排！马上加辣🌶️🔥",
+               en: "Challenge accepted! Extra chili coming up 🌶️🔥", es: "¡Reto aceptado! Ahora mismo le echo más chile 🌶️🔥" } },
+
+    { id: 20, user: "anon_9921", lang: "en", text: "ratio + you fell off", tone: "toxic",
+      out: {
+        zh: { literal: "比率 + 你掉下来了", localized: "（嘲讽）你过气了" },
+        es: { literal: "proporción + te caíste", localized: "(burla) ya no eres nadie" } },
+      note: "Harassment meme: translated honestly but tagged Toxic so moderation, not the translator, decides to hide it." }
+  ]
+};
+
+</script>
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch { return null; } },
+  set(k,v){ try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k,v); } catch {} }
+};
+
+const state = {
+  viewLang: store.get("lcl.lang") || "en",
+  view: "loc",
+  playing: true,
+  idx: 0,
+  shown: [],          // comment objects in chat order
+  selected: null,
+  replied: new Set(),
+  nextId: 1000,
+  pending: [],        // typed comments waiting for LLM
+  viewerCount: 1873
+};
+const settings = {
+  provider: store.get("lcl.provider") || "openai",
+  baseUrl: store.get("lcl.baseUrl") || "https://api.deepseek.com",
+  model: store.get("lcl.model") || "deepseek-chat",
+  key: store.get("lcl.key") || ""
+};
+const live = () => !!settings.key;
+
+/* ---------- helpers ---------- */
+const _cv = document.createElement("canvas").getContext("2d");
+function measure(t){ _cv.font = `13px ${getComputedStyle(document.body).fontFamily}`; return Math.ceil(_cv.measureText(t).width); }
+function ui(key, lang = state.viewLang, n){
+  const s = LOC.uiStrings.find(x => x.key === key); if (!s) return key;
+  let v = s[lang] ?? s.en;
+  if (n != null) v = v.replace("{n}", n.toLocaleString());
+  // Layout check in the live room too: overflowing labels fall back to Siqi's short version
+  if (s.alt?.[lang] && measure(v) > s.maxPx) v = s.alt[lang];
+  return v;
+}
+function textFor(c, lang = state.viewLang, view = state.view){
+  if (c.host) return c.hostText[lang] || c.hostText.src;
+  if (c.lang === lang) return c.text;
+  const o = c.out && c.out[lang];
+  if (!o) return c.text;
+  return view === "lit" ? o.literal : o.localized;
+}
+function detectLang(t){
+  if (/[㐀-鿿]/.test(t)) return "zh";
+  if (/[ñáéíóúü¿¡]/i.test(t) || /\b(que|qué|jaja|hola|está|muy|pero|gracias|dónde|porfa|el|la|los|las|yo|tú)\b/i.test(t)) return "es";
+  return "en";
+}
+function glossaryHits(text){
+  const t = text.toLowerCase();
+  return LOC.glossary.filter(g => {
+    const term = g.term.toLowerCase();
+    if (/^[a-z]+$/.test(term) && term.length <= 2) return new RegExp(`(^|[^a-z])${term}([^a-z]|$)`, "i").test(text);
+    return t.includes(term);
+  });
+}
+function toneTag(tone){
+  const t = LOC.tones[tone] || {label: tone || "…", zh: "", color: "#666"};
+  return `<span class="tag" style="background:${t.color}">${esc(t.label)}${t.zh ? " · " + esc(t.zh) : ""}</span>`;
+}
+
+/* ---------- static chrome ---------- */
+function renderLangSeg(){
+  $("#langSeg").innerHTML = Object.entries(LOC.languages).map(([k,v]) =>
+    `<button data-l="${k}" class="${k===state.viewLang?"on":""}">${esc(v.name)}</button>`).join("");
+}
+function renderRoomChrome(){
+  $("#hostName").textContent = STREAM.host;
+  $("#viewers").textContent = ui("viewers", state.viewLang, state.viewerCount);
+  $("#followBtn").textContent = ui("follow");
+  $("#shareLbl").textContent = ui("share");
+  $("#giftbar").innerHTML = [["🌹","gift_rose"],["🫰","gift_finger_heart"],["⭐","join_fan_club"]]
+    .map(([e,k]) => `<button class="gift" type="button" title="${esc(ui(k))}">${e} ${esc(ui(k))}</button>`).join("");
+  $("#inputBox").placeholder = {zh:"说点什么…（任意语言）", en:"Type a comment in any language…", es:"Escribe un comentario en cualquier idioma…"}[state.viewLang];
+}
+function renderRules(){
+  $("#ruleCount").textContent = LOC.rules.length;
+  $("#rules").innerHTML = LOC.rules.map(r => `<div class="rule"><b>${esc(r.id)} · ${esc(r.title)}</b><br><span>${esc(r.text)}</span></div>`).join("");
+}
+
+/* ---------- chat ---------- */
+function renderChat(){
+  const box = $("#chat");
+  box.innerHTML = state.shown.slice(-14).map(c => {
+    const txt = textFor(c);
+    const isLit = state.view === "lit" && !c.host && c.lang !== state.viewLang && c.out?.[state.viewLang];
+    const flag = c.host ? "" : (c.lang !== state.viewLang ? `<span class="flag">${c.lang.toUpperCase()}→${state.viewLang.toUpperCase()}</span>` : "");
+    const pending = c.pending ? `<span class="flag">⏳</span>` : "";
+    return `<div class="msg ${c.host?"host":""} ${c.tone==="toxic"?"toxic":""} ${state.selected===c?"sel":""}" data-id="${c.id}">`+
+      `<span class="u">${esc(c.user)}</span><span class="${isLit?"lit":""}">${esc(txt)}</span>${flag}${pending}</div>`;
+  }).join("");
+}
+function addToChat(c){
+  state.shown.push(c);
+  state.viewerCount += Math.floor(Math.random()*9) - 2;
+  renderChat(); renderStats(); renderQueue(); renderRoomChrome();
+  if (!state.selected && !c.host) select(c);
+}
+
+/* ---------- inspector ---------- */
+function renderStats(){
+  const cs = state.shown.filter(c => !c.host && !c.pending);
+  let adapted = 0, total = 0;
+  cs.forEach(c => Object.values(c.out || {}).forEach(o => { total++; if (o.literal.trim() !== o.localized.trim()) adapted++; }));
+  const flagged = cs.filter(c => (LOC.tones[c.tone]?.hostPriority || 0) >= 2).length;
+  $("#stats").innerHTML =
+    `<div class="stat"><b>${cs.length}</b><small>comments</small></div>`+
+    `<div class="stat"><b>${total ? Math.round(adapted/total*100) : 0}%</b><small>needed adaptation</small></div>`+
+    `<div class="stat"><b>${flagged}</b><small>for the host</small></div>`;
+}
+function select(c){ state.selected = c; renderChat(); renderInspector(); }
+function renderInspector(){
+  const c = state.selected; const el = $("#inspector");
+  if (!c) return;
+  if (c.pending){ el.innerHTML = `<p class="empty">Localizing “${esc(c.text)}”…</p>`; return; }
+  const targets = Object.keys(LOC.languages).filter(l => l !== c.lang);
+  const hits = glossaryHits(c.text);
+  el.innerHTML =
+    `<div class="orig"><span class="lang">${c.lang.toUpperCase()}</span><div><div class="txt">${esc(c.text)}</div>`+
+    `<div class="small" style="margin-top:4px">@${esc(c.user)} &nbsp; ${toneTag(c.tone)}</div></div></div>`+
+    targets.map(l => {
+      const o = c.out?.[l];
+      if (!o) return `<div class="row"><div class="k">${l.toUpperCase()}</div><div class="same">Not localized yet.</div></div>`;
+      const same = o.literal.trim() === o.localized.trim();
+      return `<div class="row"><div class="k">${esc(LOC.languages[l].name)}</div><div>`+
+        (same ? `<div class="loc-line">${esc(o.localized)}</div><div class="same">Literal translation already works, kept as is.</div>`
+              : `<div class="lit-line">${esc(o.literal)}</div><div class="loc-line">${esc(o.localized)}</div>`)+
+        `</div></div>`;
+    }).join("")+
+    (c.note ? `<div class="why"><b>Why · </b>${esc(c.note)}</div>` : "")+
+    (hits.length ? `<div class="chips">`+hits.map(g => `<div class="chip"><b>${esc(g.term)}</b> = ${esc(g.meaning)}</div>`).join("")+`</div>` : "");
+}
+
+/* ---------- host console ---------- */
+function renderQueue(){
+  const items = state.shown.filter(c => !c.host && !c.pending && (LOC.tones[c.tone]?.hostPriority || 0) >= 1);
+  if (!items.length){ $("#tab-queue").innerHTML = `<p class="empty">Questions, purchase requests and greetings show up here, already translated for the host, with a suggested reply in the viewer's own language.</p>`; return; }
+  $("#tab-queue").innerHTML = items.slice().reverse().map(c => {
+    const zh = c.lang === "zh" ? c.text : (c.out?.zh?.localized || c.text);
+    const done = state.replied.has(c.id);
+    if (c.tone === "toxic") return `<div class="q ${done?"done":""}"><div class="meta">${toneTag(c.tone)} @${esc(c.user)}</div>`+
+      `<div class="zh">${esc(zh)}</div><div class="src">${esc(c.text)}</div><div class="mod">Suggested: hide comment and mute user for 10 min. Do not reply.</div>`+
+      `<div class="actions"><button class="btn" data-hide="${c.id}">${done?"Hidden":"Hide"}</button></div></div>`;
+    const r = c.reply;
+    return `<div class="q ${done?"done":""}"><div class="meta">${toneTag(c.tone)} @${esc(c.user)} <span class="lang">${c.lang.toUpperCase()}</span></div>`+
+      `<div class="zh">${esc(zh)}</div>${c.lang!=="zh"?`<div class="src">${esc(c.text)}</div>`:""}`+
+      (r ? `<div class="rep"><div class="r1">💬 ${esc(r.text)}</div>${r.zh && c.lang!=="zh"?`<div class="r2">${esc(r.zh)}</div>`:""}</div>`+
+           `<div class="actions"><button class="btn primary" data-reply="${c.id}" ${done?"disabled":""}>${done?"Sent ✓":"Send reply"}</button><button class="btn" data-sel="${c.id}">Inspect</button></div>`
+         : `<div class="actions"><button class="btn" data-sel="${c.id}">Inspect</button></div>`)+
+      `</div>`;
+  }).join("");
+}
+function sendReply(c){
+  const r = c.reply; if (!r) return;
+  state.replied.add(c.id);
+  const hostText = { src: `@${c.user} ${r.text}` };
+  hostText[c.lang] = `@${c.user} ${r.text}`;
+  if (r.zh) hostText.zh = `@${c.user} ${r.zh}`;
+  if (r.en) hostText.en = `@${c.user} ${r.en}`;
+  if (r.es) hostText.es = `@${c.user} ${r.es}`;
+  addToChat({ id: state.nextId++, host: true, user: STREAM.host, hostText });
+}
+function renderUiCheck(){
+  const cv = document.createElement("canvas").getContext("2d");
+  cv.font = `13px ${getComputedStyle(document.body).fontFamily}`;
+  const langs = Object.keys(LOC.languages);
+  $("#tab-ui").innerHTML = `<p class="small" style="margin-top:0">Multilingual layout check: every button label is measured against its slot width in the live-room design. Overflowing strings fall back to Siqi's shorter alternative.</p>`+
+    `<table><tr><th>Key</th>${langs.map(l=>`<th>${esc(LOC.languages[l].name)}</th>`).join("")}</tr>`+
+    LOC.uiStrings.map(s => `<tr><td><code>${esc(s.key)}</code><div class="small">${s.maxPx}px slot</div></td>`+
+      langs.map(l => {
+        const v = (s[l] || "").replace("{n}","1,873"); const w = Math.ceil(cv.measureText(v).width);
+        const over = w > s.maxPx; const pct = Math.min(100, w / s.maxPx * 100);
+        const alt = over && s.alt?.[l];
+        const aw = alt ? Math.ceil(cv.measureText(alt).width) : 0;
+        return `<td><div class="${over?"over":""}">${esc(v)}</div><div class="bar"><i style="width:${pct}%;background:${over?"var(--bad)":"var(--good)"}"></i></div>`+
+          `<div class="small">${w}px ${over?"<span class='over'>overflow</span>":"<span class='ok'>fits</span>"}</div>`+
+          (alt ? `<div class="small">→ <span class="${aw<=s.maxPx?"ok":"over"}">${esc(alt)}</span> (${aw}px)</div>` : "")+`</td>`;
+      }).join("")+`</tr>`).join("")+`</table>`;
+}
+function renderGlossary(){
+  $("#tab-glossary").innerHTML = `<p class="small" style="margin-top:0">Preferred equivalents and the reason for each. Edited in <code>siqi/localization.js</code>; also injected into the LLM prompt in live mode.</p>`+
+    `<table><tr><th>Term</th><th>Meaning</th><th>Equivalents</th></tr>`+
+    LOC.glossary.map(g => `<tr><td><span class="gl-term">${esc(g.term)}</span><div class="small">${g.lang.toUpperCase()}</div></td>`+
+      `<td>${esc(g.meaning)}<div class="small" style="margin-top:4px">${esc(g.why)}</div></td>`+
+      `<td>${Object.keys(LOC.languages).filter(l=>l!==g.lang && g[l]).map(l=>`<div><span class="small">${l.toUpperCase()}</span> ${esc(g[l])}</div>`).join("")}</td></tr>`).join("")+`</table>`;
+}
+
+/* ---------- playback ---------- */
+let timer = null;
+function tick(){
+  if (!state.playing) return;
+  if (state.idx < STREAM.comments.length){
+    addToChat(structuredClone(STREAM.comments[state.idx++]));
+  }
+  timer = setTimeout(tick, 1700 + Math.random()*1300);
+}
+function restart(){
+  clearTimeout(timer);
+  Object.assign(state, { idx: 0, shown: [], selected: null, replied: new Set() });
+  $("#inspector").innerHTML = `<p class="empty">Waiting for the first comment…</p>`;
+  renderChat(); renderStats(); renderQueue();
+  state.playing = true; $("#playBtn").textContent = "⏸ Pause";
+  timer = setTimeout(tick, 600);
+}
+
+/* ---------- live LLM mode ---------- */
+function buildPrompt(){
+  return LOC.systemPrompt
+    .replace("{{RULES}}", LOC.rules.map(r => `- ${r.id} ${r.title}: ${r.text}`).join("\n"))
+    .replace("{{GLOSSARY}}", LOC.glossary.map(g => `- "${g.term}" (${g.lang}) = ${g.meaning} → ` +
+      Object.keys(LOC.languages).filter(l => g[l]).map(l => `${l}: ${g[l]}`).join("; ")).join("\n"))
+    .replace("{{TARGETS}}", JSON.stringify(Object.keys(LOC.languages)));
+}
+async function callLLM(batch){
+  const user = JSON.stringify(batch.map(c => ({ id: c.id, lang: c.lang, text: c.text })));
+  let text;
+  if (settings.provider === "anthropic"){
+    const res = await fetch((settings.baseUrl || "https://api.anthropic.com").replace(/\/$/,"") + "/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": settings.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({ model: settings.model || "claude-haiku-5-5", max_tokens: 2000, system: buildPrompt(), messages: [{ role: "user", content: user }] })
+    });
+    if (!res.ok) throw new Error(res.status + " " + await res.text());
+    const j = await res.json(); text = j.content.map(b => b.text || "").join("");
+  } else {
+    const res = await fetch(settings.baseUrl.replace(/\/$/,"") + "/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json", "authorization": "Bearer " + settings.key },
+      body: JSON.stringify({ model: settings.model, temperature: 0.4, messages: [{ role: "system", content: buildPrompt() }, { role: "user", content: user }] })
+    });
+    if (!res.ok) throw new Error(res.status + " " + await res.text());
+    const j = await res.json(); text = j.choices[0].message.content;
+  }
+  const m = text.match(/\[[\s\S]*\]/); if (!m) throw new Error("No JSON in model output");
+  return JSON.parse(m[0]);
+}
+async function flush(){
+  if (!state.pending.length) return;
+  const batch = state.pending.splice(0);
+  try {
+    const out = await callLLM(batch);
+    batch.forEach(c => {
+      const r = out.find(o => String(o.id) === String(c.id)) || {};
+      Object.assign(c, { pending: false, tone: r.tone || "hype", out: r.out || {}, note: r.note || "", reply: r.reply || null });
+    });
+  } catch (e) {
+    console.error(e);
+    batch.forEach(c => Object.assign(c, { pending: false, tone: "hype", out: {}, note: "Live call failed (" + String(e.message).slice(0, 120) + "). Check the key, model and CORS settings." }));
+  }
+  renderChat(); renderStats(); renderQueue(); renderInspector();
+}
+setInterval(flush, 1500);
+
+function submitComment(text){
+  const lang = detectLang(text);
+  const c = { id: state.nextId++, user: "you", lang, text, tone: "hype", out: {}, note: "" };
+  if (live()){ c.pending = true; state.pending.push(c); }
+  else {
+    const hits = glossaryHits(text);
+    c.note = hits.length
+      ? "Offline demo: glossary terms detected below. Turn on Live mode to localize free text with the LLM."
+      : "Offline demo: free text needs Live mode (⚙︎) to be localized.";
+  }
+  addToChat(c); select(c);
+}
+
+/* ---------- events ---------- */
+$("#langSeg").addEventListener("click", e => { const l = e.target.dataset.l; if (!l) return;
+  state.viewLang = l; store.set("lcl.lang", l); renderLangSeg(); renderRoomChrome(); renderChat(); });
+$("#viewSeg").addEventListener("click", e => { const v = e.target.dataset.v; if (!v) return;
+  state.view = v; [...$("#viewSeg").children].forEach(b => b.classList.toggle("on", b.dataset.v === v)); renderChat(); });
+$("#chat").addEventListener("click", e => { const m = e.target.closest(".msg"); if (!m) return;
+  const c = state.shown.find(x => String(x.id) === m.dataset.id); if (c && !c.host) select(c); });
+$("#playBtn").onclick = () => { state.playing = !state.playing; $("#playBtn").textContent = state.playing ? "⏸ Pause" : "▶ Play"; if (state.playing) tick(); else clearTimeout(timer); };
+$("#restartBtn").onclick = restart;
+$("#tabs").addEventListener("click", e => { const t = e.target.dataset.t; if (!t) return;
+  [...$("#tabs").children].forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  ["queue","ui","glossary"].forEach(k => $("#tab-"+k).hidden = k !== t); });
+$("#tab-queue").addEventListener("click", e => {
+  const id = e.target.dataset.reply || e.target.dataset.sel || e.target.dataset.hide; if (!id) return;
+  const c = state.shown.find(x => String(x.id) === id); if (!c) return;
+  if (e.target.dataset.reply && !state.replied.has(c.id)) sendReply(c);
+  if (e.target.dataset.hide){ state.replied.add(c.id); state.shown = state.shown.filter(x => x !== c); if (state.selected === c) state.selected = null; renderChat(); renderQueue(); renderStats(); return; }
+  if (e.target.dataset.sel) select(c);
+  renderQueue();
+});
+$("#inputForm").addEventListener("submit", e => { e.preventDefault(); const v = $("#inputBox").value.trim(); if (!v) return; $("#inputBox").value = ""; submitComment(v); });
+
+const dlg = $("#settings");
+function syncMode(){ $("#modeBadge").textContent = live() ? "Live LLM" : "Offline demo"; $("#modeBadge").classList.toggle("live", live()); }
+$("#settingsBtn").onclick = () => { $("#provider").value = settings.provider; $("#baseUrl").value = settings.baseUrl; $("#model").value = settings.model; $("#apiKey").value = settings.key; dlg.showModal(); };
+$("#provider").onchange = e => { if (e.target.value === "anthropic"){ $("#baseUrl").value = "https://api.anthropic.com"; $("#model").value = "claude-haiku-5-5"; } else { $("#baseUrl").value = "https://api.deepseek.com"; $("#model").value = "deepseek-chat"; } };
+$("#saveKey").onclick = () => { Object.assign(settings, { provider: $("#provider").value, baseUrl: $("#baseUrl").value.trim(), model: $("#model").value.trim(), key: $("#apiKey").value.trim() });
+  ["provider","baseUrl","model"].forEach(k => store.set("lcl."+k, settings[k])); store.set("lcl.key", settings.key || null); syncMode(); dlg.close(); };
+$("#clearKey").onclick = () => { settings.key = ""; store.set("lcl.key", null); syncMode(); dlg.close(); };
+
+/* ---------- boot ---------- */
+renderLangSeg(); renderRoomChrome(); renderRules(); renderUiCheck(); renderGlossary(); renderStats(); renderQueue(); syncMode();
+const params = new URLSearchParams(location.search);
+if (params.has("all")) { STREAM.comments.forEach(c => state.shown.push(structuredClone(c))); state.idx = STREAM.comments.length; renderChat(); renderStats(); renderQueue(); select(state.shown[5]); }
+else timer = setTimeout(tick, 600);
+})();
+</script>
+</body>
+</html>
